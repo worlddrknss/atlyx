@@ -4,6 +4,10 @@ Atlyx is a desktop inventory management app built with Electron, Vue 3, TypeScri
 
 It is designed for fast barcode-driven workflows and includes inventory tracking, labels, scanning, locations, categories, activity history, check-in/out, low stock alerts, and soft-delete trash management.
 
+## Screenshot
+
+![Atlyx Screenshot](assets/Screenshot%202026-04-02%20at%201.13.13%E2%80%AFPM.png)
+
 ## Features
 
 - Inventory items with quantity, serial/tag, value, category, and location
@@ -74,6 +78,14 @@ pnpm build:mac     # Build macOS package
 pnpm build:win     # Build Windows package
 pnpm build:linux   # Build Linux package
 ```
+
+## Releases (GitHub Actions)
+
+This repository includes a cross-platform release workflow at [.github/workflows/release.yml](.github/workflows/release.yml).
+
+- Push a version tag like `v1.0.0` to build and release for Windows, macOS, and Linux.
+- You can also run the workflow manually from the Actions tab (`workflow_dispatch`).
+- On tagged runs, artifacts are published to a GitHub Release automatically.
 
 ## Data and Storage
 
