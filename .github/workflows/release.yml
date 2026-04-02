@@ -110,6 +110,13 @@ jobs:
 
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" --generate-notes
+          else
+            existing=$(gh release view "$tag" --json assets --jq '.assets[].name' || true)
+            if [[ -n "$existing" ]]; then
+              echo "$existing" | while read -r name; do
+                gh release delete-asset "$tag" "$name" --yes || true
+              done
+            fi
           fi
 
           mapfile -t files < <(find release-artifacts -type f)
@@ -118,6 +125,6 @@ jobs:
             exit 1
           fi
 
-          gh release upload "$tag" "${files[@]}" --clobber
+          gh release upload "$tag" "${files[@]}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
