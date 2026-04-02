@@ -5,8 +5,14 @@ import CreateItemModal from './CreateItemModal.vue'
 interface InventoryItem {
   id: number
   name: string
+  make: string
+  model: string
   barcode: string
+  category: string
+  serial_number: string
   quantity: number
+  location: string
+  retail_value: number
 }
 
 interface BatchEntry {
@@ -17,11 +23,46 @@ interface BatchEntry {
 
 const scanInput = ref<HTMLInputElement | null>(null)
 const currentBarcode = ref('')
+const lastScannedBarcode = ref('')
 const selectedItem = ref<InventoryItem | null>(null)
 const scanned = ref(false)
 const showCreateModal = ref(false)
 const batchMode = ref(false)
 const batchEntries = ref<BatchEntry[]>([])
+const soundEnabled = ref(false)
+
+onMounted(async () => {
+  scanInput.value?.focus()
+  const val = await window.api.getSetting('soundOnScan')
+  soundEnabled.value = val !== 'false'
+})
+
+function playSound(type: 'success' | 'error'): void {
+  if (!soundEnabled.value) return
+  const ctx = new AudioContext()
+  const g = ctx.createGain()
+  g.gain.value = 0.3
+  g.connect(ctx.destination)
+
+  if (type === 'success') {
+    const o = ctx.createOscillator()
+    o.type = 'sine'
+    o.frequency.value = 1200
+    o.connect(g)
+    o.start()
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
+    o.stop(ctx.currentTime + 0.15)
+  } else {
+    const o1 = ctx.createOscillator()
+    o1.type = 'sine'
+    o1.frequency.value = 400
+    o1.connect(g)
+    o1.start()
+    o1.frequency.setValueAtTime(300, ctx.currentTime + 0.12)
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
+    o1.stop(ctx.currentTime + 0.25)
+  }
+}
 
 async function lookup(): Promise<void> {
   const code = currentBarcode.value.trim()
@@ -34,19 +75,27 @@ async function lookup(): Promise<void> {
     batchEntries.value.unshift({
       barcode: code,
       item: found,
-      timestamp: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      timestamp: now.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
     })
     if (found) {
       await window.api.updateQuantity(found.id, found.quantity + 1)
       found.quantity += 1
     }
+    playSound(found ? 'success' : 'error')
     currentBarcode.value = ''
     nextTick(() => scanInput.value?.focus())
     return
   }
 
+  lastScannedBarcode.value = code
   selectedItem.value = found
   scanned.value = true
+  currentBarcode.value = ''
+  playSound(found ? 'success' : 'error')
 }
 
 async function adjustQuantity(delta: number): Promise<void> {
@@ -60,14 +109,36 @@ function openCreateModal(): void {
   showCreateModal.value = true
 }
 
-async function handleSave(newItem: { name: string; barcode: string; quantity: number }): Promise<void> {
+async function handleSave(
+  newItem: {
+    name: string
+    make: string
+    model: string
+    barcode: string
+    category: string
+    serial_number: string
+    quantity: number
+    location: string
+    retail_value: number
+  },
+  customFieldValues?: Record<number, string>
+): Promise<void> {
   const created = (await window.api.createItem({
     name: newItem.name,
+    make: newItem.make,
+    model: newItem.model,
     barcode: newItem.barcode,
-    category: '',
+    category: newItem.category,
+    serial_number: newItem.serial_number,
     quantity: newItem.quantity,
-    location: ''
+    location: newItem.location,
+    retail_value: newItem.retail_value
   })) as InventoryItem
+  if (customFieldValues) {
+    for (const [fieldId, val] of Object.entries(customFieldValues)) {
+      if (val) await window.api.setCustomFieldValue(created.id, Number(fieldId), val)
+    }
+  }
   selectedItem.value = created
   showCreateModal.value = false
 }
@@ -92,9 +163,17 @@ function clearBatch(): void {
   nextTick(() => scanInput.value?.focus())
 }
 
-onMounted(() => {
-  scanInput.value?.focus()
-})
+async function printLabel(): Promise<void> {
+  if (!selectedItem.value) return
+  const printerName = (await window.api.getSetting('printerName')) ?? ''
+  const labelSize = (await window.api.getSetting('labelSize')) ?? 'small'
+  await window.api.printLabel({
+    name: selectedItem.value.name,
+    barcode: selectedItem.value.barcode,
+    labelSize,
+    printerName
+  })
+}
 </script>
 
 <template>
@@ -103,7 +182,11 @@ onMounted(() => {
     <div class="w-full max-w-lg flex items-center justify-end mb-4">
       <button
         class="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
-        :class="batchMode ? 'bg-accent/10 border-accent/30 text-accent' : 'border-border text-text-muted hover:text-text-secondary'"
+        :class="
+          batchMode
+            ? 'bg-accent/10 border-accent/30 text-accent'
+            : 'border-border text-text-muted hover:text-text-secondary'
+        "
         @click="toggleBatch"
       >
         <span>{{ batchMode ? '⚡ Batch Mode ON' : 'Batch Mode' }}</span>
@@ -117,7 +200,9 @@ onMounted(() => {
           ref="scanInput"
           v-model="currentBarcode"
           type="text"
-          :placeholder="batchMode ? 'Batch scan — each Enter adds +1 qty…' : 'Scan barcode or enter code…'"
+          :placeholder="
+            batchMode ? 'Batch scan — each Enter adds +1 qty…' : 'Scan barcode or enter code…'
+          "
           class="w-full bg-surface-soft border border-border rounded-xl px-5 py-4 text-base text-text-primary placeholder-text-muted outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 transition-all font-mono tracking-wider"
           @keydown.enter="lookup"
         />
@@ -130,7 +215,12 @@ onMounted(() => {
         </span>
       </div>
       <p class="text-xs text-text-muted mt-2 text-center">
-        Press <kbd class="px-1.5 py-0.5 rounded bg-surface-mute border border-border text-[10px] font-mono">Enter</kbd> to look up
+        Press
+        <kbd
+          class="px-1.5 py-0.5 rounded bg-surface-mute border border-border text-[10px] font-mono"
+          >Enter</kbd
+        >
+        to look up
       </p>
     </div>
 
@@ -170,7 +260,10 @@ onMounted(() => {
             </button>
           </div>
 
-          <button class="ml-auto px-4 py-2 text-sm font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg transition-colors">
+          <button
+            class="ml-auto px-4 py-2 text-sm font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg transition-colors"
+            @click="printLabel"
+          >
             Print Label
           </button>
         </div>
@@ -179,7 +272,7 @@ onMounted(() => {
       <!-- Item Not Found -->
       <div v-else class="bg-surface-soft border border-border rounded-xl p-6 text-center">
         <p class="text-text-secondary text-sm">No item found for</p>
-        <p class="text-text-primary font-mono text-base mt-1">{{ currentBarcode }}</p>
+        <p class="text-text-primary font-mono text-base mt-1">{{ lastScannedBarcode }}</p>
         <button
           class="mt-5 px-5 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg transition-colors"
           @click="openCreateModal"
@@ -192,7 +285,7 @@ onMounted(() => {
     <!-- Create Item Modal -->
     <CreateItemModal
       v-if="showCreateModal"
-      :barcode="currentBarcode"
+      :barcode="lastScannedBarcode"
       @close="showCreateModal = false"
       @save="handleSave"
     />
@@ -201,8 +294,13 @@ onMounted(() => {
     <div v-if="batchMode && batchEntries.length > 0" class="w-full max-w-lg mt-8">
       <div class="bg-surface-soft border border-border rounded-xl overflow-hidden">
         <div class="px-5 py-3 border-b border-border flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-text-primary">Batch Log ({{ batchEntries.length }} scans)</h3>
-          <button class="text-xs text-text-muted hover:text-text-secondary transition-colors" @click="clearBatch">
+          <h3 class="text-sm font-semibold text-text-primary">
+            Batch Log ({{ batchEntries.length }} scans)
+          </h3>
+          <button
+            class="text-xs text-text-muted hover:text-text-secondary transition-colors"
+            @click="clearBatch"
+          >
             Clear
           </button>
         </div>
@@ -215,7 +313,9 @@ onMounted(() => {
             <div class="flex items-center gap-3">
               <span
                 class="w-6 h-6 rounded flex items-center justify-center text-xs font-semibold"
-                :class="entry.item ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400'"
+                :class="
+                  entry.item ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400'
+                "
               >
                 {{ entry.item ? '✓' : '?' }}
               </span>

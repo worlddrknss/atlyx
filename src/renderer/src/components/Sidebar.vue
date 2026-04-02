@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
+
 defineProps<{
   activeView: string
 }>()
@@ -7,15 +9,38 @@ const emit = defineEmits<{
   (e: 'navigate', view: string): void
 }>()
 
+const overdueCount = ref(0)
+const lowStockCount = ref(0)
+
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: '▦' },
   { id: 'scan', label: 'Scan', icon: '⎋' },
   { id: 'items', label: 'Items', icon: '☰' },
+  { id: 'categories', label: 'Categories', icon: '▤' },
   { id: 'locations', label: 'Locations', icon: '◎' },
   { id: 'labels', label: 'Barcodes', icon: '⊞' },
   { id: 'activity', label: 'Activity', icon: '↻' },
+  { id: 'trash', label: 'Trash', icon: '⌫' },
   { id: 'settings', label: 'Settings', icon: '⚙' }
 ]
+
+function badgeFor(id: string): number {
+  if (id === 'items') return lowStockCount.value
+  if (id === 'dashboard') return overdueCount.value
+  return 0
+}
+
+onMounted(async () => {
+  try {
+    const [oc, items] = await Promise.all([window.api.getOverdueCount(), window.api.listItems()])
+    overdueCount.value = oc
+    lowStockCount.value = (items as Array<{ quantity: number; min_quantity: number }>).filter(
+      (i) => i.min_quantity > 0 && i.quantity <= i.min_quantity
+    ).length
+  } catch {
+    // ignore if APIs not available yet
+  }
+})
 </script>
 
 <template>
@@ -39,7 +64,13 @@ const navItems = [
           @click="emit('navigate', item.id)"
         >
           <span class="text-base opacity-60">{{ item.icon }}</span>
-          {{ item.label }}
+          <span class="flex-1">{{ item.label }}</span>
+          <span
+            v-if="badgeFor(item.id) > 0"
+            class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-400/15 text-red-400"
+          >
+            {{ badgeFor(item.id) }}
+          </span>
         </li>
       </ul>
     </nav>

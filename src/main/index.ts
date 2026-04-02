@@ -1,9 +1,10 @@
-import { app, shell, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, nativeTheme, protocol, net } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { initDatabase } from './database'
+import { initDatabase, getDatabase } from './database'
 import { registerIpcHandlers } from './ipc'
+import { pathToFileURL } from 'url'
 
 function createWindow(): void {
   // Create the browser window.
@@ -37,20 +38,44 @@ function createWindow(): void {
   }
 }
 
+// Register custom protocol for serving local files safely
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'atlyx-file', privileges: { bypassCSP: true, stream: true, supportFetchAPI: true } }
+])
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  // Follow system light/dark theme
-  nativeTheme.themeSource = 'system'
-
-  // Set app name (shows in macOS menu bar)
-  app.name = 'Atlyx'
+  // Handle atlyx-file:// protocol to serve local files
+  protocol.handle('atlyx-file', (request) => {
+    const filePath = decodeURIComponent(request.url.replace('atlyx-file://', ''))
+    return net.fetch(pathToFileURL(filePath).href)
+  })
 
   // Initialize database and IPC
   initDatabase()
   registerIpcHandlers()
 
+  // Set app name (shows in macOS menu bar)
+  app.name = 'Atlyx'
+
+  // Restore persisted theme preference
+  const db = getDatabase()
+  const themeRow = db.prepare("SELECT value FROM settings WHERE key = 'theme'").get() as
+    | { value: string }
+    | undefined
+  nativeTheme.themeSource = (themeRow?.value as 'system' | 'dark' | 'light') ?? 'system'
+  // Set default storage path if not configured
+  const spRow = db.prepare("SELECT value FROM settings WHERE key = 'storagePath'").get() as
+    | { value: string }
+    | undefined
+  if (!spRow) {
+    const defaultPath = join(app.getPath('documents'), 'Atlyx')
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('storagePath', ?)").run(
+      defaultPath
+    )
+  }
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
