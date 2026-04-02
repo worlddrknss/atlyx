@@ -19,15 +19,19 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: linux
+            arch: x64
             build_command: pnpm build && pnpm exec electron-builder --linux --publish never
-          - os: macos-13
+          - os: macos-latest
             artifact_name: macos-x64
+            arch: x64
             build_command: pnpm build && pnpm exec electron-builder --mac dmg zip --x64 --publish never
           - os: macos-latest
             artifact_name: macos-arm64
+            arch: arm64
             build_command: pnpm build && pnpm exec electron-builder --mac dmg zip --arm64 --publish never
           - os: windows-latest
             artifact_name: windows
+            arch: x64
             build_command: pnpm build && pnpm exec electron-builder --win --publish never
 
     steps:
@@ -49,7 +53,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Rebuild native deps for Electron
-        run: pnpm exec electron-builder install-app-deps
+        run: pnpm exec electron-builder install-app-deps --arch=${{ matrix.arch }}
 
       - name: Build distributables
         run: ${{ matrix.build_command }}
