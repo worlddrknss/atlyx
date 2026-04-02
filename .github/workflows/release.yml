@@ -95,36 +95,20 @@ jobs:
         with:
           path: release-artifacts
 
-      - name: Show artifact tree
-        run: find release-artifacts -type f
-
-      - name: Remove duplicate builder metadata files
+      - name: Flatten and deduplicate assets
         run: |
-          find release-artifacts -type f \( -name "builder-debug.yml" -o -name "app-update.yml" \) -delete
+          mkdir -p upload
+          find release-artifacts -type f \
+            ! -name "builder-debug.yml" \
+            ! -name "app-update.yml" \
+            -exec cp -f {} upload/ \;
+          echo "=== Files to upload ==="
+          ls -lh upload/
 
-      - name: Publish release assets
-        shell: bash
+      - name: Create release and upload assets
         run: |
-          set -euo pipefail
           tag="${GITHUB_REF_NAME}"
-
-          if ! gh release view "$tag" >/dev/null 2>&1; then
-            gh release create "$tag" --generate-notes
-          else
-            existing=$(gh release view "$tag" --json assets --jq '.assets[].name' || true)
-            if [[ -n "$existing" ]]; then
-              echo "$existing" | while read -r name; do
-                gh release delete-asset "$tag" "$name" --yes || true
-              done
-            fi
-          fi
-
-          mapfile -t files < <(find release-artifacts -type f)
-          if [[ ${#files[@]} -eq 0 ]]; then
-            echo "No release files found."
-            exit 1
-          fi
-
-          gh release upload "$tag" "${files[@]}"
+          gh release create "$tag" --generate-notes upload/* || \
+          gh release upload "$tag" upload/* --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
