@@ -48,6 +48,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Rebuild native deps for Electron
+        run: pnpm exec electron-builder install-app-deps
+
       - name: Build distributables
         run: ${{ matrix.build_command }}
         env:

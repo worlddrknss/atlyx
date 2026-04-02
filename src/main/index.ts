@@ -1,10 +1,26 @@
-import { app, shell, BrowserWindow, ipcMain, nativeTheme, protocol, net } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, nativeTheme, protocol, net, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase, getDatabase } from './database'
 import { registerIpcHandlers } from './ipc'
 import { pathToFileURL } from 'url'
+import { appendFileSync } from 'fs'
+
+function logFatalError(context: string, error: unknown): void {
+  const message = error instanceof Error ? `${error.stack ?? error.message}` : String(error)
+  const line = `[${new Date().toISOString()}] ${context}\n${message}\n\n`
+  try {
+    appendFileSync(join(app.getPath('userData'), 'fatal.log'), line)
+  } catch {
+    // Ignore logging failures.
+  }
+  try {
+    dialog.showErrorBox('Atlyx Startup Error', `${context}\n\n${message}`)
+  } catch {
+    // Ignore dialog failures.
+  }
+}
 
 function createWindow(): void {
   // Create the browser window.
@@ -22,6 +38,19 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  // Fallback: if renderer never emits ready-to-show, still surface the window.
+  setTimeout(() => {
+    if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show()
+    }
+  }, 4000)
+
+  mainWindow.webContents.on('did-fail-load', (_event, code, description, validatedURL) => {
+    const err = `Renderer failed to load (${code}): ${description} @ ${validatedURL}`
+    logFatalError('Renderer failed to load', err)
+    if (!mainWindow.isDestroyed()) mainWindow.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -46,6 +75,14 @@ protocol.registerSchemesAsPrivileged([
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
+process.on('uncaughtException', (error) => {
+  logFatalError('Uncaught exception in main process', error)
+})
+
+process.on('unhandledRejection', (reason) => {
+  logFatalError('Unhandled promise rejection in main process', reason)
+})
+
 app.whenReady().then(() => {
   // Handle atlyx-file:// protocol to serve local files
   protocol.handle('atlyx-file', (request) => {
