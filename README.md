@@ -86,6 +86,8 @@ This repository includes a cross-platform release workflow at [.github/workflows
 - Push a version tag like `v1.0.0` to build and release for Windows, macOS, and Linux.
 - You can also run the workflow manually from the Actions tab (`workflow_dispatch`).
 - On tagged runs, artifacts are published to a GitHub Release automatically.
+- macOS builds are generated for both Intel (`x64`) and Apple Silicon (`arm64`).
+- DMG filenames include architecture (for example: `atlyx-1.0.0-arm64.dmg`).
 
 ## Data and Storage
 
