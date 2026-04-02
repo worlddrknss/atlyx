@@ -19,13 +19,13 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: linux
-            build_command: pnpm build && pnpm exec electron-builder --linux AppImage
+            build_command: pnpm build && pnpm exec electron-builder --linux AppImage --publish never
           - os: macos-latest
             artifact_name: macos
-            build_command: pnpm build && pnpm exec electron-builder --mac
+            build_command: pnpm build && pnpm exec electron-builder --mac --publish never
           - os: windows-latest
             artifact_name: windows
-            build_command: pnpm build && pnpm exec electron-builder --win
+            build_command: pnpm build && pnpm exec electron-builder --win --publish never
 
     steps:
       - name: Checkout
@@ -50,6 +50,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+          ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
