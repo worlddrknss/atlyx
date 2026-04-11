@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, nativeTheme, protocol, net, dialog 
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { initDatabase, getDatabase } from './database'
+import { initDatabase, getRawDb } from './database'
 import { registerIpcHandlers } from './ipc'
 import { pathToFileURL } from 'url'
 import { appendFileSync } from 'fs'
@@ -83,7 +83,7 @@ process.on('unhandledRejection', (reason) => {
   logFatalError('Unhandled promise rejection in main process', reason)
 })
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Handle atlyx-file:// protocol to serve local files
   protocol.handle('atlyx-file', (request) => {
     const filePath = decodeURIComponent(request.url.replace('atlyx-file://', ''))
@@ -91,14 +91,14 @@ app.whenReady().then(() => {
   })
 
   // Initialize database and IPC
-  initDatabase()
+  await initDatabase()
   registerIpcHandlers()
 
   // Set app name (shows in macOS menu bar)
   app.name = 'Atlyx'
 
   // Restore persisted theme preference
-  const db = getDatabase()
+  const db = getRawDb()
   const themeRow = db.prepare("SELECT value FROM settings WHERE key = 'theme'").get() as
     | { value: string }
     | undefined

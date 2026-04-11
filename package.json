@@ -25,7 +25,9 @@
     "@electron-toolkit/utils": "^4.0.0",
     "better-sqlite3": "^12.8.0",
     "bwip-js": "^4.9.0",
-    "electron-updater": "^6.3.9"
+    "drizzle-orm": "^0.45.2",
+    "electron-updater": "^6.3.9",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "3.0.0",
@@ -35,6 +37,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/bwip-js": "^3.2.3",
     "@types/node": "^22.19.1",
+    "@types/pg": "^8.20.0",
     "@vitejs/plugin-vue": "^6.0.2",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",

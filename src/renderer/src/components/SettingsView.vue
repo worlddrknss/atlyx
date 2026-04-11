@@ -36,10 +36,8 @@ const showFieldModal = ref(false)
 const fieldForm = ref({ name: '', field_type: 'text', options: '' })
 const fieldTypes = ['text', 'number', 'date', 'select']
 
-const dbEngines = ['mysql', 'mariadb', 'postgres'] as const
 const dbMode = ref<'local' | 'remote'>('local')
 const remoteDb = ref({
-  engine: 'postgres' as 'mysql' | 'mariadb' | 'postgres',
   host: '',
   port: 5432,
   database: '',
@@ -173,15 +171,6 @@ async function handleReset(): Promise<void> {
   }
   await window.api.resetDatabase()
   resetConfirm.value = false
-}
-
-function updateEnginePort(): void {
-  remoteDb.value.port = remoteDb.value.engine === 'postgres' ? 5432 : 3306
-}
-
-function setRemoteDbEngine(engine: (typeof dbEngines)[number]): void {
-  remoteDb.value.engine = engine
-  updateEnginePort()
 }
 
 async function testRemoteDb(): Promise<void> {
@@ -575,7 +564,7 @@ async function disconnectRemoteDb(): Promise<void> {
             <p class="text-sm font-medium text-text-primary">Connection Mode</p>
             <p class="text-xs text-text-muted mt-0.5">
               {{
-                dbMode === 'remote' ? 'Connected to remote database' : 'Using local SQLite database'
+                dbMode === 'remote' ? 'Connected to PostgreSQL database' : 'Using local SQLite database'
               }}
             </p>
           </div>
@@ -589,31 +578,6 @@ async function disconnectRemoteDb(): Promise<void> {
           >
             {{ dbMode === 'remote' ? '● Remote' : '○ Local' }}
           </span>
-        </div>
-
-        <!-- Engine selector -->
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-text-primary">Engine</p>
-            <p class="text-xs text-text-muted mt-0.5">Select your remote database type</p>
-          </div>
-          <div
-            class="flex items-center bg-surface-soft border border-border rounded-lg overflow-hidden"
-          >
-            <button
-              v-for="eng in dbEngines"
-              :key="eng"
-              class="px-3 py-1.5 text-xs font-medium transition-colors"
-              :class="
-                remoteDb.engine === eng
-                  ? 'bg-accent text-white'
-                  : 'text-text-secondary hover:text-text-primary'
-              "
-              @click="setRemoteDbEngine(eng)"
-            >
-              {{ eng === 'postgres' ? 'PostgreSQL' : eng === 'mariadb' ? 'MariaDB' : 'MySQL' }}
-            </button>
-          </div>
         </div>
 
         <!-- Connection fields -->

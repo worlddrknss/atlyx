@@ -248,7 +248,6 @@ interface AtlyxAPI {
 
   // Remote Database
   testRemoteDb(config: {
-    engine: 'mysql' | 'mariadb' | 'postgres'
     host: string
     port: number
     database: string
@@ -256,7 +255,6 @@ interface AtlyxAPI {
     password: string
   }): Promise<{ ok: boolean; error?: string }>
   saveRemoteDb(config: {
-    engine: 'mysql' | 'mariadb' | 'postgres'
     host: string
     port: number
     database: string
@@ -266,7 +264,6 @@ interface AtlyxAPI {
   disconnectRemoteDb(): Promise<void>
   getDbMode(): Promise<string>
   getRemoteDbConfig(): Promise<{
-    engine: 'mysql' | 'mariadb' | 'postgres'
     host: string
     port: number
     database: string

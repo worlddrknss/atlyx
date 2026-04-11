@@ -178,7 +178,6 @@ const api = {
 
   // Remote Database
   testRemoteDb: (config: {
-    engine: 'mysql' | 'mariadb' | 'postgres'
     host: string
     port: number
     database: string
@@ -186,7 +185,6 @@ const api = {
     password: string
   }): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('remote-db:test', config),
   saveRemoteDb: (config: {
-    engine: 'mysql' | 'mariadb' | 'postgres'
     host: string
     port: number
     database: string
@@ -196,7 +194,6 @@ const api = {
   disconnectRemoteDb: (): Promise<void> => ipcRenderer.invoke('remote-db:disconnect'),
   getDbMode: (): Promise<string> => ipcRenderer.invoke('remote-db:get-mode'),
   getRemoteDbConfig: (): Promise<{
-    engine: 'mysql' | 'mariadb' | 'postgres'
     host: string
     port: number
     database: string
